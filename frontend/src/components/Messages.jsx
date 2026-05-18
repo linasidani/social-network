@@ -10,6 +10,12 @@ export function Messages() {
   const [inbox, setInbox] = useState([])
   const [sent, setSent] = useState([])
   const [message, setMessage] = useState('')
+  const [currentUser, setCurrentUser] = useState(null)
+
+  useEffect(() => {
+    const user = apiService.getCurrentUser()
+    setCurrentUser(user)
+  }, [])
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -72,6 +78,15 @@ export function Messages() {
       console.error('Send message failed:', error)
       setMessage('Could not send message. Kontrollera backend.')
     }
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="feed-container">
+        <h2>Messages</h2>
+        <p>Du måste vara inloggad för att se meddelanden. <a href="/login">Logga in här</a>.</p>
+      </div>
+    )
   }
 
   return (

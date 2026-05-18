@@ -8,6 +8,12 @@ export function Feed() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const user = apiService.getCurrentUser();
+    setCurrentUser(user);
+  }, []);
 
   const loadUsers = async () => {
     try {
@@ -50,6 +56,15 @@ export function Feed() {
       loadWall(currentUserId);
     }
   }, [currentUserId]);
+
+  if (!currentUser) {
+    return (
+      <div className="feed-container">
+        <h2>Wall</h2>
+        <p>Du måste vara inloggad för att se Wall. <a href="/login">Logga in här</a>.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="feed-container">
