@@ -46,6 +46,122 @@ body {
   background: #f1f5f9;
 }
 
+.feed-container {
+  max-width: 960px;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+}
+
+.feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.user-select {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-select label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.user-select select,
+.post-form select,
+.post-form textarea,
+.post-form input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #0f172a;
+  font: inherit;
+}
+
+.posts {
+  display: grid;
+  gap: 16px;
+}
+
+.post {
+  padding: 20px;
+  border-radius: 18px;
+  background: #f8fafc;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.post h4 {
+  margin: 0 0 8px;
+}
+
+.post p {
+  margin: 0 0 12px;
+  color: #334155;
+}
+
+.post small {
+  color: #64748b;
+}
+
+.post button,
+button {
+  cursor: pointer;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 12px;
+  background: #0f172a;
+  color: white;
+  font-weight: 600;
+}
+
+.post button[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.post-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.post-form label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.message,
+.error-message {
+  margin-top: 16px;
+  font-weight: 600;
+}
+
+.error-message {
+  color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .feed-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

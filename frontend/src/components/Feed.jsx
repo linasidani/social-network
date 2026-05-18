@@ -4,18 +4,38 @@ import './Feed.css';
 
 export function Feed() {
   const [users, setUsers] = useState([]);
+  const [wall, setWall] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const loadUsers = async () => {
     try {
       setError('');
-      setLoading(true);
       const response = await apiService.getUsers();
-      setUsers(response.data || []);
+      const userList = response.data || [];
+      setUsers(userList);
+      if (!currentUserId && userList.length > 0) {
+        setCurrentUserId(userList[0].id);
+      }
     } catch (error) {
       console.error('Failed to load users:', error);
       setError('Could not load users. Kontrollera att backend är igång.');
+    }
+  };
+
+  const loadWall = async (userId) => {
+    if (!userId) return;
+
+    try {
+      setError('');
+      setLoading(true);
+      const response = await apiService.getWall(userId);
+      setWall(response.data || []);
+    } catch (error) {
+      console.error('Failed to load wall:', error);
+      setError('Could not load wall. Kontrollera att backend är igång.');
+      setWall([]);
     } finally {
       setLoading(false);
     }
@@ -25,26 +45,50 @@ export function Feed() {
     loadUsers();
   }, []);
 
+  useEffect(() => {
+    if (currentUserId) {
+      loadWall(currentUserId);
+    }
+  }, [currentUserId]);
+
   return (
     <div className="feed-container">
-      <h2>Users</h2>
-      <p>Browse social users registered in the app.</p>
+      <div className="feed-header">
+        <div>
+          <h2>Wall</h2>
+          <p>See user posts from people you follow.</p>
+        </div>
+        <div className="user-select">
+          <label htmlFor="currentUser">Current user</label>
+          <select
+            id="currentUser"
+            value={currentUserId ?? ''}
+            onChange={(e) => setCurrentUserId(Number(e.target.value))}
+          >
+            {users.map((user) => (
+              <option value={user.id} key={user.id}>
+                {user.username}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       {error && <p className="error-message">{error}</p>}
 
       <div className="posts">
         {loading ? (
           <p>Loading...</p>
-        ) : users.length > 0 ? (
-          users.map((user) => (
-            <div key={user.id} className="post">
-              <h4>{user.username}</h4>
-              <p>{user.email}</p>
-              <small>{new Date(user.createdAt).toLocaleDateString()}</small>
+        ) : wall.length > 0 ? (
+          wall.map((post) => (
+            <div key={post.id} className="post">
+              <h4>{post.authorUsername}</h4>
+              <p>{post.content}</p>
+              <small>{new Date(post.createdAt).toLocaleString()}</small>
             </div>
           ))
         ) : (
-          <p>No users found yet.</p>
+          <p>No posts found. Create a post or follow someone.</p>
         )}
       </div>
     </div>

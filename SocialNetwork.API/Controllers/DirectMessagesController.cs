@@ -7,7 +7,7 @@ using SocialNetwork.API.Models;
 namespace SocialNetwork.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/messages")]
 public class DirectMessagesController : ControllerBase
 {
     private readonly AppDbContext _context;
