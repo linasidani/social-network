@@ -1,12 +1,34 @@
 import './App.css'
+import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import { Register } from './components/Register'
+import { Login } from './components/Login'
 import { Feed } from './components/Feed'
 import { CreatePost } from './components/CreatePost'
 import { Users } from './components/Users'
 import { Messages } from './components/Messages'
+import { apiService } from './services/apiService'
 
 function App() {
+  const [currentUser, setCurrentUser] = useState(null)
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const user = apiService.getCurrentUser()
+    if (user) {
+      setCurrentUser(user)
+    }
+  }, [])
+
+  const handleLogin = (user) => {
+    setCurrentUser(user)
+  }
+
+  const handleLogout = () => {
+    apiService.logout()
+    setCurrentUser(null)
+  }
+
   return (
     <Router>
       <div className="app-shell">
@@ -17,7 +39,16 @@ function App() {
             <Link to="/post">Post</Link>
             <Link to="/users">Users</Link>
             <Link to="/messages">Messages</Link>
-            <Link to="/register">Register</Link>
+            {!currentUser && <Link to="/register">Registrera</Link>}
+            {!currentUser && <Link to="/login">Logga in</Link>}
+            {currentUser && (
+              <span style={{ color: '#fff', marginLeft: '1rem' }}>
+                {currentUser.username}
+                <button onClick={handleLogout} style={{ marginLeft: '0.5rem' }}>
+                  Logga ut
+                </button>
+              </span>
+            )}
           </nav>
         </header>
 
@@ -28,6 +59,7 @@ function App() {
             <Route path="/users" element={<Users />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login onLogin={handleLogin} />} />
           </Routes>
         </main>
       </div>

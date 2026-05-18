@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SocialNetwork.API.DTOs;
 using SocialNetwork.API.Services;
 
 namespace SocialNetwork.API.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
@@ -20,6 +22,7 @@ public class UsersController : ControllerBase
     /// <summary>
     /// Register a new user
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<ActionResult<UserDto>> Register(RegisterUserDto dto)
     {
@@ -37,6 +40,7 @@ public class UsersController : ControllerBase
     /// <summary>
     /// Log in a user and return a JWT token
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login(LoginUserDto dto)
     {
@@ -47,6 +51,7 @@ public class UsersController : ControllerBase
     /// <summary>
     /// Get all users
     /// </summary>
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<List<UserDto>>> GetAllUsers()
     {
