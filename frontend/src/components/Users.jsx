@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { apiService } from '../services/apiService';
 import './Feed.css';
 
@@ -99,14 +100,19 @@ export function Users() {
             <div key={user.id} className="post">
               <h4>{user.username}</h4>
               <p>{user.email}</p>
-              {currentUserId !== user.id && (
-                <button
-                  type="button"
-                  onClick={() => isFollowing(user.id) ? handleUnfollow(user.id) : handleFollow(user.id)}
-                >
-                  {isFollowing(user.id) ? 'Avfölj' : 'Följ'}
-                </button>
-              )}
+              <div style={{ marginTop: '0.5rem' }}>
+                <Link to={`/timeline/${user.id}`} style={{ marginRight: '0.5rem' }}>
+                  Se tidslinje
+                </Link>
+                {currentUserId !== user.id && (
+                  <button
+                    type="button"
+                    onClick={() => isFollowing(user.id) ? handleUnfollow(user.id) : handleFollow(user.id)}
+                  >
+                    {isFollowing(user.id) ? 'Avfölj' : 'Följ'}
+                  </button>
+                )}
+              </div>
             </div>
           ))
         ) : (
