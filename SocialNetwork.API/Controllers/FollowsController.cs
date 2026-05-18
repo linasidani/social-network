@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SocialNetwork.API.Data;
 using SocialNetwork.API.DTOs;
-using SocialNetwork.API.Models;
+using SocialNetwork.API.Services;
 
 namespace SocialNetwork.API.Controllers;
 
@@ -10,13 +8,13 @@ namespace SocialNetwork.API.Controllers;
 [Route("api/[controller]")]
 public class FollowsController : ControllerBase
 {
-    private readonly AppDbContext _context;
     private readonly ILogger<FollowsController> _logger;
+    private readonly FollowService _followService;
 
-    public FollowsController(AppDbContext context, ILogger<FollowsController> logger)
+    public FollowsController(FollowService followService, ILogger<FollowsController> logger)
     {
-        _context = context;
         _logger = logger;
+        _followService = followService;
     }
 
     /// <summary>
@@ -25,39 +23,15 @@ public class FollowsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<FollowDto>> FollowUser([FromQuery] int followerId, [FromQuery] int followingId)
     {
-        if (followerId == followingId)
+        var result = await _followService.FollowAsync(followerId, followingId);
+        if (!result.IsSuccess)
         {
-            return BadRequest("Cannot follow yourself");
+            return ToActionResult(result);
         }
 
-        // Verify both users exist
-        var follower = await _context.Users.FindAsync(followerId);
-        var following = await _context.Users.FindAsync(followingId);
+        _logger.LogInformation("User {FollowerId} started following {FollowingId}", followerId, followingId);
 
-        if (follower == null || following == null)
-        {
-            return NotFound("One or both users not found");
-        }
-
-        // Check if already following
-        if (await _context.Follows.AnyAsync(f => f.FollowerId == followerId && f.FollowingId == followingId))
-        {
-            return BadRequest("Already following this user");
-        }
-
-        var follow = new Follow
-        {
-            FollowerId = followerId,
-            FollowingId = followingId,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Follows.Add(follow);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation($"User {followerId} started following {followingId}");
-
-        return CreatedAtAction(nameof(GetFollowersCount), new { userId = followingId }, MapToDto(follow, follower.Username, following.Username));
+        return CreatedAtAction(nameof(GetFollowersCount), new { userId = followingId }, result.Value);
     }
 
     /// <summary>
@@ -66,16 +40,12 @@ public class FollowsController : ControllerBase
     [HttpDelete]
     public async Task<IActionResult> UnfollowUser([FromQuery] int followerId, [FromQuery] int followingId)
     {
-        var follow = await _context.Follows.FirstOrDefaultAsync(f => f.FollowerId == followerId && f.FollowingId == followingId);
-        if (follow == null)
+        if (!await _followService.UnfollowAsync(followerId, followingId))
         {
             return NotFound();
         }
 
-        _context.Follows.Remove(follow);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation($"User {followerId} stopped following {followingId}");
+        _logger.LogInformation("User {FollowerId} stopped following {FollowingId}", followerId, followingId);
 
         return NoContent();
     }
@@ -86,13 +56,7 @@ public class FollowsController : ControllerBase
     [HttpGet("followers/{userId}")]
     public async Task<ActionResult<List<UserDto>>> GetFollowers(int userId)
     {
-        var followers = await _context.Follows
-            .Include(f => f.Follower)
-            .Where(f => f.FollowingId == userId)
-            .Select(f => f.Follower)
-            .ToListAsync();
-
-        return Ok(followers.Select(MapUserToDto).ToList());
+        return Ok(await _followService.GetFollowersAsync(userId));
     }
 
     /// <summary>
@@ -101,13 +65,7 @@ public class FollowsController : ControllerBase
     [HttpGet("following/{userId}")]
     public async Task<ActionResult<List<UserDto>>> GetFollowing(int userId)
     {
-        var following = await _context.Follows
-            .Include(f => f.Following)
-            .Where(f => f.FollowerId == userId)
-            .Select(f => f.Following)
-            .ToListAsync();
-
-        return Ok(following.Select(MapUserToDto).ToList());
+        return Ok(await _followService.GetFollowingAsync(userId));
     }
 
     /// <summary>
@@ -116,8 +74,7 @@ public class FollowsController : ControllerBase
     [HttpGet("{userId}/followers-count")]
     public async Task<ActionResult<int>> GetFollowersCount(int userId)
     {
-        var count = await _context.Follows.CountAsync(f => f.FollowingId == userId);
-        return Ok(count);
+        return Ok(await _followService.GetFollowersCountAsync(userId));
     }
 
     /// <summary>
@@ -126,31 +83,16 @@ public class FollowsController : ControllerBase
     [HttpGet("{userId}/following-count")]
     public async Task<ActionResult<int>> GetFollowingCount(int userId)
     {
-        var count = await _context.Follows.CountAsync(f => f.FollowerId == userId);
-        return Ok(count);
+        return Ok(await _followService.GetFollowingCountAsync(userId));
     }
 
-    private FollowDto MapToDto(Follow follow, string followerUsername, string followingUsername)
+    private ActionResult ToActionResult<T>(ServiceResult<T> result)
     {
-        return new FollowDto
+        return result.Status switch
         {
-            Id = follow.Id,
-            FollowerId = follow.FollowerId,
-            FollowerUsername = followerUsername,
-            FollowingId = follow.FollowingId,
-            FollowingUsername = followingUsername,
-            CreatedAt = follow.CreatedAt
-        };
-    }
-
-    private UserDto MapUserToDto(User user)
-    {
-        return new UserDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            CreatedAt = user.CreatedAt
+            ServiceResultStatus.BadRequest => BadRequest(result.Error),
+            ServiceResultStatus.NotFound => NotFound(result.Error),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
     }
 }

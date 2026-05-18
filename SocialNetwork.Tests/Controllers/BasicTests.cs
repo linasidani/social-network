@@ -24,7 +24,7 @@ public class BasicTests : IDisposable
         
         _context = new AppDbContext(options);
         _mockLogger = new Mock<ILogger<UsersController>>();
-        _controller = new UsersController(_context, _mockLogger.Object, CreateAuthService());
+        _controller = new UsersController(new UserService(_context, CreateAuthService()), _mockLogger.Object);
     }
 
     private static AuthService CreateAuthService()

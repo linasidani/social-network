@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SocialNetwork.API.Data;
 using SocialNetwork.API.DTOs;
-using SocialNetwork.API.Models;
+using SocialNetwork.API.Services;
 
 namespace SocialNetwork.API.Controllers;
 
@@ -10,13 +8,13 @@ namespace SocialNetwork.API.Controllers;
 [Route("api/[controller]")]
 public class PostsController : ControllerBase
 {
-    private readonly AppDbContext _context;
     private readonly ILogger<PostsController> _logger;
+    private readonly PostService _postService;
 
-    public PostsController(AppDbContext context, ILogger<PostsController> logger)
+    public PostsController(PostService postService, ILogger<PostsController> logger)
     {
-        _context = context;
         _logger = logger;
+        _postService = postService;
     }
 
     /// <summary>
@@ -25,46 +23,15 @@ public class PostsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<PostDto>> CreatePost(CreatePostDto dto, [FromQuery] int authorId)
     {
-        if (string.IsNullOrWhiteSpace(dto.Content))
+        var result = await _postService.CreateAsync(dto, authorId);
+        if (!result.IsSuccess)
         {
-            return BadRequest("Content is required");
+            return ToActionResult(result);
         }
 
-        if (dto.Content.Length > 500)
-        {
-            return BadRequest("Content must be 500 characters or fewer");
-        }
+        _logger.LogInformation("Post created by user {AuthorId}", authorId);
 
-        // Verify author exists
-        var author = await _context.Users.FindAsync(authorId);
-        if (author == null)
-        {
-            return NotFound("Author not found");
-        }
-
-        if (dto.TimelineOwnerId.HasValue)
-        {
-            var timelineOwner = await _context.Users.FindAsync(dto.TimelineOwnerId.Value);
-            if (timelineOwner == null)
-            {
-                return NotFound("Timeline owner not found");
-            }
-        }
-
-        var post = new Post
-        {
-            Content = dto.Content,
-            CreatedAt = DateTime.UtcNow,
-            AuthorId = authorId,
-            TimelineOwnerId = dto.TimelineOwnerId
-        };
-
-        _context.Posts.Add(post);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation($"Post created by user {authorId}");
-
-        return CreatedAtAction(nameof(GetPost), new { id = post.Id }, MapToDto(post, author.Username));
+        return CreatedAtAction(nameof(GetPost), new { id = result.Value!.Id }, result.Value);
     }
 
     /// <summary>
@@ -73,24 +40,8 @@ public class PostsController : ControllerBase
     [HttpGet("wall/{userId}")]
     public async Task<ActionResult<List<PostDto>>> GetWall(int userId)
     {
-        var user = await _context.Users.FindAsync(userId);
-        if (user == null)
-        {
-            return NotFound();
-        }
-
-        var followingIds = await _context.Follows
-            .Where(f => f.FollowerId == userId)
-            .Select(f => f.FollowingId)
-            .ToListAsync();
-
-        var posts = await _context.Posts
-            .Include(p => p.Author)
-            .Where(p => p.AuthorId == userId || followingIds.Contains(p.AuthorId))
-            .OrderByDescending(p => p.CreatedAt)
-            .ToListAsync();
-
-        return Ok(posts.Select(p => MapToDto(p, p.Author.Username)).ToList());
+        var result = await _postService.GetWallAsync(userId);
+        return result.IsSuccess ? Ok(result.Value) : ToActionResult(result);
     }
 
     /// <summary>
@@ -99,13 +50,13 @@ public class PostsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<PostDto>> GetPost(int id)
     {
-        var post = await _context.Posts.Include(p => p.Author).FirstOrDefaultAsync(p => p.Id == id);
+        var post = await _postService.GetByIdAsync(id);
         if (post == null)
         {
             return NotFound();
         }
 
-        return Ok(MapToDto(post, post.Author.Username));
+        return Ok(post);
     }
 
     /// <summary>
@@ -114,13 +65,7 @@ public class PostsController : ControllerBase
     [HttpGet("user/{userId}")]
     public async Task<ActionResult<List<PostDto>>> GetUserPosts(int userId)
     {
-        var posts = await _context.Posts
-            .Include(p => p.Author)
-            .Where(p => p.AuthorId == userId)
-            .OrderByDescending(p => p.CreatedAt)
-            .ToListAsync();
-
-        return Ok(posts.Select(p => MapToDto(p, p.Author.Username)).ToList());
+        return Ok(await _postService.GetByUserAsync(userId));
     }
 
     /// <summary>
@@ -129,13 +74,7 @@ public class PostsController : ControllerBase
     [HttpGet("timeline/{userId}")]
     public async Task<ActionResult<List<PostDto>>> GetTimeline(int userId)
     {
-        var posts = await _context.Posts
-            .Include(p => p.Author)
-            .Where(p => p.TimelineOwnerId == userId || p.AuthorId == userId)
-            .OrderByDescending(p => p.CreatedAt)
-            .ToListAsync();
-
-        return Ok(posts.Select(p => MapToDto(p, p.Author.Username)).ToList());
+        return Ok(await _postService.GetTimelineAsync(userId));
     }
 
     /// <summary>
@@ -144,30 +83,23 @@ public class PostsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeletePost(int id)
     {
-        var post = await _context.Posts.FindAsync(id);
-        if (post == null)
+        if (!await _postService.DeleteAsync(id))
         {
             return NotFound();
         }
 
-        _context.Posts.Remove(post);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation($"Post {id} deleted");
+        _logger.LogInformation("Post {PostId} deleted", id);
 
         return NoContent();
     }
 
-    private PostDto MapToDto(Post post, string authorUsername)
+    private ActionResult ToActionResult<T>(ServiceResult<T> result)
     {
-        return new PostDto
+        return result.Status switch
         {
-            Id = post.Id,
-            Content = post.Content,
-            CreatedAt = post.CreatedAt,
-            AuthorId = post.AuthorId,
-            AuthorUsername = authorUsername,
-            TimelineOwnerId = post.TimelineOwnerId
+            ServiceResultStatus.BadRequest => BadRequest(result.Error),
+            ServiceResultStatus.NotFound => NotFound(result.Error),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
     }
 }

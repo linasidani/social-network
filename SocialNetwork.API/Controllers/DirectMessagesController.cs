@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SocialNetwork.API.Data;
 using SocialNetwork.API.DTOs;
-using SocialNetwork.API.Models;
+using SocialNetwork.API.Services;
 
 namespace SocialNetwork.API.Controllers;
 
@@ -10,13 +8,13 @@ namespace SocialNetwork.API.Controllers;
 [Route("api/messages")]
 public class DirectMessagesController : ControllerBase
 {
-    private readonly AppDbContext _context;
     private readonly ILogger<DirectMessagesController> _logger;
+    private readonly DirectMessageService _messageService;
 
-    public DirectMessagesController(AppDbContext context, ILogger<DirectMessagesController> logger)
+    public DirectMessagesController(DirectMessageService messageService, ILogger<DirectMessagesController> logger)
     {
-        _context = context;
         _logger = logger;
+        _messageService = messageService;
     }
 
     /// <summary>
@@ -25,39 +23,15 @@ public class DirectMessagesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<DirectMessageDto>> SendMessage(CreateDirectMessageDto dto, [FromQuery] int senderId)
     {
-        if (string.IsNullOrWhiteSpace(dto.Content))
+        var result = await _messageService.SendAsync(dto, senderId);
+        if (!result.IsSuccess)
         {
-            return BadRequest("Content is required");
+            return ToActionResult(result);
         }
 
-        if (senderId == dto.ReceiverId)
-        {
-            return BadRequest("Cannot send message to yourself");
-        }
+        _logger.LogInformation("Message sent from {SenderId} to {ReceiverId}", senderId, dto.ReceiverId);
 
-        // Verify both users exist
-        var sender = await _context.Users.FindAsync(senderId);
-        var receiver = await _context.Users.FindAsync(dto.ReceiverId);
-
-        if (sender == null || receiver == null)
-        {
-            return NotFound("One or both users not found");
-        }
-
-        var message = new DirectMessage
-        {
-            Content = dto.Content,
-            CreatedAt = DateTime.UtcNow,
-            SenderId = senderId,
-            ReceiverId = dto.ReceiverId
-        };
-
-        _context.DirectMessages.Add(message);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation($"Message sent from {senderId} to {dto.ReceiverId}");
-
-        return CreatedAtAction(nameof(GetMessage), new { id = message.Id }, MapToDto(message, sender.Username, receiver.Username));
+        return CreatedAtAction(nameof(GetMessage), new { id = result.Value!.Id }, result.Value);
     }
 
     /// <summary>
@@ -66,17 +40,14 @@ public class DirectMessagesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<DirectMessageDto>> GetMessage(int id)
     {
-        var message = await _context.DirectMessages
-            .Include(m => m.Sender)
-            .Include(m => m.Receiver)
-            .FirstOrDefaultAsync(m => m.Id == id);
+        var message = await _messageService.GetByIdAsync(id);
 
         if (message == null)
         {
             return NotFound();
         }
 
-        return Ok(MapToDto(message, message.Sender.Username, message.Receiver.Username));
+        return Ok(message);
     }
 
     /// <summary>
@@ -85,15 +56,7 @@ public class DirectMessagesController : ControllerBase
     [HttpGet("conversation/{userId1}/{userId2}")]
     public async Task<ActionResult<List<DirectMessageDto>>> GetConversation(int userId1, int userId2)
     {
-        var messages = await _context.DirectMessages
-            .Include(m => m.Sender)
-            .Include(m => m.Receiver)
-            .Where(m => (m.SenderId == userId1 && m.ReceiverId == userId2) || 
-                        (m.SenderId == userId2 && m.ReceiverId == userId1))
-            .OrderBy(m => m.CreatedAt)
-            .ToListAsync();
-
-        return Ok(messages.Select(m => MapToDto(m, m.Sender.Username, m.Receiver.Username)).ToList());
+        return Ok(await _messageService.GetConversationAsync(userId1, userId2));
     }
 
     /// <summary>
@@ -102,14 +65,7 @@ public class DirectMessagesController : ControllerBase
     [HttpGet("inbox/{userId}")]
     public async Task<ActionResult<List<DirectMessageDto>>> GetInbox(int userId)
     {
-        var messages = await _context.DirectMessages
-            .Include(m => m.Sender)
-            .Include(m => m.Receiver)
-            .Where(m => m.ReceiverId == userId)
-            .OrderByDescending(m => m.CreatedAt)
-            .ToListAsync();
-
-        return Ok(messages.Select(m => MapToDto(m, m.Sender.Username, m.Receiver.Username)).ToList());
+        return Ok(await _messageService.GetInboxAsync(userId));
     }
 
     /// <summary>
@@ -118,14 +74,7 @@ public class DirectMessagesController : ControllerBase
     [HttpGet("sent/{userId}")]
     public async Task<ActionResult<List<DirectMessageDto>>> GetSentMessages(int userId)
     {
-        var messages = await _context.DirectMessages
-            .Include(m => m.Sender)
-            .Include(m => m.Receiver)
-            .Where(m => m.SenderId == userId)
-            .OrderByDescending(m => m.CreatedAt)
-            .ToListAsync();
-
-        return Ok(messages.Select(m => MapToDto(m, m.Sender.Username, m.Receiver.Username)).ToList());
+        return Ok(await _messageService.GetSentAsync(userId));
     }
 
     /// <summary>
@@ -134,31 +83,23 @@ public class DirectMessagesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteMessage(int id)
     {
-        var message = await _context.DirectMessages.FindAsync(id);
-        if (message == null)
+        if (!await _messageService.DeleteAsync(id))
         {
             return NotFound();
         }
 
-        _context.DirectMessages.Remove(message);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation($"Message {id} deleted");
+        _logger.LogInformation("Message {MessageId} deleted", id);
 
         return NoContent();
     }
 
-    private DirectMessageDto MapToDto(DirectMessage message, string senderUsername, string receiverUsername)
+    private ActionResult ToActionResult<T>(ServiceResult<T> result)
     {
-        return new DirectMessageDto
+        return result.Status switch
         {
-            Id = message.Id,
-            Content = message.Content,
-            CreatedAt = message.CreatedAt,
-            SenderId = message.SenderId,
-            SenderUsername = senderUsername,
-            ReceiverId = message.ReceiverId,
-            ReceiverUsername = receiverUsername
+            ServiceResultStatus.BadRequest => BadRequest(result.Error),
+            ServiceResultStatus.NotFound => NotFound(result.Error),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
     }
 }
