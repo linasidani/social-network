@@ -8,6 +8,12 @@ export function Users() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [following, setFollowing] = useState([]);
   const [message, setMessage] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const user = apiService.getCurrentUser();
+    setCurrentUser(user);
+  }, []);
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -68,6 +74,15 @@ export function Users() {
   };
 
   const isFollowing = (userId) => following.some((user) => user.id === userId);
+
+  if (!currentUser) {
+    return (
+      <div className="feed-container">
+        <h2>Users</h2>
+        <p>Du måste vara inloggad för att se användare. <a href="/login">Logga in här</a>.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="feed-container">

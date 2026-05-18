@@ -9,6 +9,12 @@ export function Timeline() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const user = apiService.getCurrentUser();
+    setCurrentUser(user);
+  }, []);
 
   const loadUser = async (id) => {
     try {
@@ -44,6 +50,15 @@ export function Timeline() {
       loadTimeline(targetUserId);
     }
   }, [userId]);
+
+  if (!currentUser) {
+    return (
+      <div className="feed-container">
+        <h2>Tidslinje</h2>
+        <p>Du måste vara inloggad för att se tidslinjer. <a href="/login">Logga in här</a>.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="feed-container">
