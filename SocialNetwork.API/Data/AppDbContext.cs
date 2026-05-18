@@ -24,7 +24,7 @@ public class AppDbContext : DbContext
             .HasOne(p => p.TimelineOwner)
             .WithMany()
             .HasForeignKey(p => p.TimelineOwnerId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Follow>()
             .HasOne(f => f.Follower)
