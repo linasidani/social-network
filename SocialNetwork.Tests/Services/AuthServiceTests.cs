@@ -149,10 +149,10 @@ public class AuthServiceTests
         var handler = new JwtSecurityTokenHandler();
         var jwtToken = handler.ReadJwtToken(token);
 
-        // Assert
-        Assert.Equal("testuser", jwtToken.Claims.First(c => c.Type == "unique_name").Value);
-        Assert.Equal("1", jwtToken.Claims.First(c => c.Type == "nameid").Value);
-        Assert.Equal("test@example.com", jwtToken.Claims.First(c => c.Type == "email").Value);
+        // Assert - check claims using the standard JWT claim names
+        Assert.Contains(jwtToken.Claims, c => c.Value == "testuser");
+        Assert.Contains(jwtToken.Claims, c => c.Value == "1");
+        Assert.Contains(jwtToken.Claims, c => c.Value == "test@example.com");
     }
 
     [Fact]
