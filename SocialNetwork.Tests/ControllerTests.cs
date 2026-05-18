@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SocialNetwork.API.Controllers;
 using SocialNetwork.API.Data;
 using SocialNetwork.API.DTOs;
 using SocialNetwork.API.Models;
+using SocialNetwork.API.Services;
 
 namespace SocialNetwork.Tests;
 
@@ -19,11 +21,26 @@ public class ControllerTests
         return new AppDbContext(options);
     }
 
+    private static AuthService CreateAuthService()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = "test-secret-key-for-auth-service-123456789",
+                ["Jwt:Issuer"] = "SocialNetwork.API.Tests",
+                ["Jwt:Audience"] = "SocialNetwork.Tests",
+                ["Jwt:ExpiresInMinutes"] = "60"
+            })
+            .Build();
+
+        return new AuthService(configuration);
+    }
+
     [Fact]
     public async Task RegisterUser_CreatesUserAndReturnsCreatedResult()
     {
         using var context = CreateContext(nameof(RegisterUser_CreatesUserAndReturnsCreatedResult));
-        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>());
+        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>(), CreateAuthService());
 
         var dto = new RegisterUserDto
         {
@@ -48,7 +65,7 @@ public class ControllerTests
         context.Users.Add(new User { Username = "existing", Email = "dup@example.com", PasswordHash = "abc" });
         await context.SaveChangesAsync();
 
-        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>());
+        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>(), CreateAuthService());
         var dto = new RegisterUserDto
         {
             Username = "newuser",
@@ -71,7 +88,7 @@ public class ControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>());
+        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>(), CreateAuthService());
         var result = await controller.GetAllUsers();
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var users = Assert.IsType<List<UserDto>>(okResult.Value!);
