@@ -36,11 +36,16 @@ public class ControllerTests
         return new AuthService(configuration);
     }
 
+    private static UserService CreateUserService(AppDbContext context)
+    {
+        return new UserService(context, CreateAuthService());
+    }
+
     [Fact]
     public async Task RegisterUser_CreatesUserAndReturnsCreatedResult()
     {
         using var context = CreateContext(nameof(RegisterUser_CreatesUserAndReturnsCreatedResult));
-        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>(), CreateAuthService());
+        var controller = new UsersController(CreateUserService(context), new LoggerFactory().CreateLogger<UsersController>());
 
         var dto = new RegisterUserDto
         {
@@ -65,7 +70,7 @@ public class ControllerTests
         context.Users.Add(new User { Username = "existing", Email = "dup@example.com", PasswordHash = "abc" });
         await context.SaveChangesAsync();
 
-        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>(), CreateAuthService());
+        var controller = new UsersController(CreateUserService(context), new LoggerFactory().CreateLogger<UsersController>());
         var dto = new RegisterUserDto
         {
             Username = "newuser",
@@ -88,7 +93,7 @@ public class ControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new UsersController(context, new LoggerFactory().CreateLogger<UsersController>(), CreateAuthService());
+        var controller = new UsersController(CreateUserService(context), new LoggerFactory().CreateLogger<UsersController>());
         var result = await controller.GetAllUsers();
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var users = Assert.IsType<List<UserDto>>(okResult.Value!);
@@ -104,7 +109,7 @@ public class ControllerTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var controller = new PostsController(context, new LoggerFactory().CreateLogger<PostsController>());
+        var controller = new PostsController(new PostService(context), new LoggerFactory().CreateLogger<PostsController>());
         var dto = new CreatePostDto { Content = "Hello world", TimelineOwnerId = null };
 
         var result = await controller.CreatePost(dto, user.Id);
@@ -124,7 +129,7 @@ public class ControllerTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var controller = new PostsController(context, new LoggerFactory().CreateLogger<PostsController>());
+        var controller = new PostsController(new PostService(context), new LoggerFactory().CreateLogger<PostsController>());
         var dto = new CreatePostDto { Content = "Message to nobody", TimelineOwnerId = 999 };
 
         var result = await controller.CreatePost(dto, user.Id);
@@ -141,7 +146,7 @@ public class ControllerTests
         context.Users.AddRange(follower, following);
         await context.SaveChangesAsync();
 
-        var controller = new FollowsController(context, new LoggerFactory().CreateLogger<FollowsController>());
+        var controller = new FollowsController(new FollowService(context), new LoggerFactory().CreateLogger<FollowsController>());
         var result = await controller.FollowUser(follower.Id, following.Id);
         var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
         var followDto = Assert.IsType<FollowDto>(createdResult.Value);
@@ -168,7 +173,7 @@ public class ControllerTests
         );
         await context.SaveChangesAsync();
 
-        var controller = new PostsController(context, new LoggerFactory().CreateLogger<PostsController>());
+        var controller = new PostsController(new PostService(context), new LoggerFactory().CreateLogger<PostsController>());
         var result = await controller.GetWall(userA.Id);
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var posts = Assert.IsType<List<PostDto>>(okResult.Value!);
@@ -188,7 +193,7 @@ public class ControllerTests
         context.Users.AddRange(sender, receiver);
         await context.SaveChangesAsync();
 
-        var controller = new DirectMessagesController(context, new LoggerFactory().CreateLogger<DirectMessagesController>());
+        var controller = new DirectMessagesController(new DirectMessageService(context), new LoggerFactory().CreateLogger<DirectMessagesController>());
         var sendResult = await controller.SendMessage(new CreateDirectMessageDto { Content = "Hello", ReceiverId = receiver.Id }, sender.Id);
         var createdResult = Assert.IsType<CreatedAtActionResult>(sendResult.Result);
         var messageDto = Assert.IsType<DirectMessageDto>(createdResult.Value);
