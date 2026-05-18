@@ -7,6 +7,7 @@ import { Feed } from './components/Feed'
 import { CreatePost } from './components/CreatePost'
 import { Users } from './components/Users'
 import { Messages } from './components/Messages'
+import { Timeline } from './components/Timeline'
 import { apiService } from './services/apiService'
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
             <Link to="/">Wall</Link>
             <Link to="/post">Post</Link>
             <Link to="/users">Users</Link>
+            <Link to="/timeline">Min tidslinje</Link>
             <Link to="/messages">Messages</Link>
             {!currentUser && <Link to="/register">Registrera</Link>}
             {!currentUser && <Link to="/login">Logga in</Link>}
@@ -57,6 +59,8 @@ function App() {
             <Route path="/" element={<Feed />} />
             <Route path="/post" element={<CreatePost />} />
             <Route path="/users" element={<Users />} />
+            <Route path="/timeline/:userId" element={<Timeline />} />
+            <Route path="/timeline" element={<Timeline />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login onLogin={handleLogin} />} />
