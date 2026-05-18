@@ -44,12 +44,25 @@ export function Users() {
     if (!currentUserId) return;
     try {
       await apiService.followUser(currentUserId, userId);
-      setMessage('Now following user!');
+      setMessage('Följer nu användaren!');
       const response = await apiService.getFollowing(currentUserId);
       setFollowing(response.data || []);
     } catch (error) {
       console.error('Failed to follow user:', error);
-      setMessage('Could not follow user.');
+      setMessage('Kunde inte följa användaren.');
+    }
+  };
+
+  const handleUnfollow = async (userId) => {
+    if (!currentUserId) return;
+    try {
+      await apiService.unfollowUser(currentUserId, userId);
+      setMessage('Avföljde användaren!');
+      const response = await apiService.getFollowing(currentUserId);
+      setFollowing(response.data || []);
+    } catch (error) {
+      console.error('Failed to unfollow user:', error);
+      setMessage('Kunde inte avfölja användaren.');
     }
   };
 
@@ -89,10 +102,9 @@ export function Users() {
               {currentUserId !== user.id && (
                 <button
                   type="button"
-                  onClick={() => handleFollow(user.id)}
-                  disabled={isFollowing(user.id)}
+                  onClick={() => isFollowing(user.id) ? handleUnfollow(user.id) : handleFollow(user.id)}
                 >
-                  {isFollowing(user.id) ? 'Following' : 'Follow'}
+                  {isFollowing(user.id) ? 'Avfölj' : 'Följ'}
                 </button>
               )}
             </div>
