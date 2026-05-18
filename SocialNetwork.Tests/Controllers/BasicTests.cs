@@ -1,11 +1,12 @@
 using Xunit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SocialNetwork.API.Data;
 using SocialNetwork.API.Controllers;
-using SocialNetwork.API.DTOs;
 using SocialNetwork.API.Models;
 using Microsoft.Extensions.Logging;
 using Moq;
+using SocialNetwork.API.Services;
 
 namespace SocialNetwork.Tests;
 
@@ -23,7 +24,22 @@ public class BasicTests : IDisposable
         
         _context = new AppDbContext(options);
         _mockLogger = new Mock<ILogger<UsersController>>();
-        _controller = new UsersController(_context, _mockLogger.Object);
+        _controller = new UsersController(_context, _mockLogger.Object, CreateAuthService());
+    }
+
+    private static AuthService CreateAuthService()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:Key"] = "test-secret-key-for-auth-service-123456789",
+                ["Jwt:Issuer"] = "SocialNetwork.API.Tests",
+                ["Jwt:Audience"] = "SocialNetwork.Tests",
+                ["Jwt:ExpiresInMinutes"] = "60"
+            })
+            .Build();
+
+        return new AuthService(configuration);
     }
 
     public void Dispose()
