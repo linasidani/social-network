@@ -30,11 +30,25 @@ public class PostsController : ControllerBase
             return BadRequest("Content is required");
         }
 
+        if (dto.Content.Length > 500)
+        {
+            return BadRequest("Content must be 500 characters or fewer");
+        }
+
         // Verify author exists
         var author = await _context.Users.FindAsync(authorId);
         if (author == null)
         {
             return NotFound("Author not found");
+        }
+
+        if (dto.TimelineOwnerId.HasValue)
+        {
+            var timelineOwner = await _context.Users.FindAsync(dto.TimelineOwnerId.Value);
+            if (timelineOwner == null)
+            {
+                return NotFound("Timeline owner not found");
+            }
         }
 
         var post = new Post
@@ -51,6 +65,32 @@ public class PostsController : ControllerBase
         _logger.LogInformation($"Post created by user {authorId}");
 
         return CreatedAtAction(nameof(GetPost), new { id = post.Id }, MapToDto(post, author.Username));
+    }
+
+    /// <summary>
+    /// Get wall feed for a user
+    /// </summary>
+    [HttpGet("wall/{userId}")]
+    public async Task<ActionResult<List<PostDto>>> GetWall(int userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        var followingIds = await _context.Follows
+            .Where(f => f.FollowerId == userId)
+            .Select(f => f.FollowingId)
+            .ToListAsync();
+
+        var posts = await _context.Posts
+            .Include(p => p.Author)
+            .Where(p => p.AuthorId == userId || followingIds.Contains(p.AuthorId))
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+
+        return Ok(posts.Select(p => MapToDto(p, p.Author.Username)).ToList());
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://127.0.0.1:5001/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -29,6 +29,7 @@ export const apiService = {
   getUserPosts: (userId) => api.get(`/posts/user/${userId}`),
   
   getTimeline: (userId) => api.get(`/posts/timeline/${userId}`),
+  getWall: (userId) => api.get(`/posts/wall/${userId}`),
   
   deletePost: (id) => api.delete(`/posts/${id}`),
 
